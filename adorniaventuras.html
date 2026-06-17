@@ -8,10 +8,10 @@
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{background:#1a0a2e;width:100%;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;}
 body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;overflow:hidden;}
-#scaleOuter{position:relative;width:800px;height:520px;transform-origin:center center;}
-#wrap{position:relative;width:800px;height:520px;overflow:hidden;border:3px solid #FFD700;border-radius:4px;}
+#scaleOuter{position:relative;transform-origin:center center;}
+#wrap{position:relative;overflow:hidden;border:3px solid #FFD700;border-radius:4px;}
 /* Touch controls - hidden by default, shown via JS on small screens */
-#touchControls{position:absolute;inset:0;z-index:60;pointer-events:none;display:none;}
+#touchControls{position:fixed;inset:0;z-index:200;pointer-events:none;display:none;}
 #touchControls.active{display:block;}
 .tbtn{position:absolute;pointer-events:auto;background:rgba(255,215,0,0.22);border:2px solid rgba(255,215,0,0.65);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;color:#FFD700;-webkit-tap-highlight-color:transparent;user-select:none;}
 .tbtn:active{background:rgba(255,215,0,0.45);}
@@ -22,13 +22,16 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 #bgCanvas{position:absolute;top:0;left:0;}
 #gameCanvas{position:absolute;top:0;left:0;z-index:2;}
 #hud{position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,0.82);padding:6px 14px;display:flex;align-items:center;gap:18px;font-size:13px;color:#FFD700;border-bottom:2px solid #FFD700;z-index:10;font-weight:bold;letter-spacing:1px;height:42px;}
+#hud.narrow{padding:6px 8px;gap:8px;font-size:11px;}
+#hud.narrow #gameTitle{display:none;}
+#hud.narrow #livesEl{font-size:13px;min-width:auto;}
 #gameTitle{flex:1;text-align:center;font-size:10px;color:#FFD700;letter-spacing:3px;}
 #livesEl{color:#FF5555;font-size:15px;min-width:80px;}
 #moneyEl{color:#00FF88;min-width:90px;}
 #safeEl{color:#88CCFF;min-width:90px;}
 #muteBtn{cursor:pointer;font-size:16px;background:none;border:1px solid #FFD700;border-radius:4px;color:#FFD700;padding:2px 8px;}
 #cashFlash{position:absolute;top:50px;right:16px;color:#00FF88;font-size:24px;font-weight:bold;opacity:0;transition:opacity 0.4s;pointer-events:none;z-index:20;text-shadow:0 0 8px #00FF88;}
-.gmodal{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
+.gmodal{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;padding:0 16px;text-align:center;}
 #caputoOverlay,#modalJubiladas,#modalConstructor{cursor:pointer;}
 #modalStart{background:rgba(0,0,0,0.93);z-index:110;}
 #modalStart img.hero{width:80px;height:130px;object-fit:contain;border:3px solid #FFD700;border-radius:6px;margin-bottom:10px;box-shadow:0 0 20px #FFD700;}
@@ -74,12 +77,6 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 <div id="wrap">
   <canvas id="bgCanvas" width="800" height="520"></canvas>
   <canvas id="gameCanvas" width="800" height="520"></canvas>
-  <div id="touchControls">
-    <div class="tbtn" id="btnLeft">◀</div>
-    <div class="tbtn" id="btnRight">▶</div>
-    <div class="tbtn" id="btnJump">⤒</div>
-    <div id="btnPauseTouch">⏸</div>
-  </div>
   <div id="hud">
     <div id="livesEl">❤️❤️❤️</div>
     <div id="moneyEl">💵 $0</div>
@@ -93,8 +90,8 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
     <h1>LAS ADORNIAVENTURAS</h1>
     <div class="sub">✨ Y el Pendrive Mágico ✨</div>
     <div class="inst">← → moverse &nbsp;|&nbsp; ↑ / Espacio saltar &nbsp;|&nbsp; ESC = Pausa<br>
-      Agarrá 💾 pendrives → +$200 &nbsp;|&nbsp; Saltá a Nestor<br>
-      Cuidado con la prensa 📺 y dejate ayudar por Caputito 💼</div>
+      Agarrá 💾 pendrives → +$200 &nbsp;|&nbsp; Saltá a Perón 🪖<br>
+      Cuidado con la prensa 📺 y con Caputito 💼</div>
     <button id="btnStart">⭐ COMENZAR ⭐</button>
   </div>
   <div id="modalOver" class="gmodal">
@@ -134,6 +131,12 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
   </div>
 </div>
 </div>
+<div id="touchControls">
+  <div class="tbtn" id="btnLeft">◀</div>
+  <div class="tbtn" id="btnRight">▶</div>
+  <div class="tbtn" id="btnJump">⤒</div>
+  <div id="btnPauseTouch">⏸</div>
+</div>
 <script>
 (function(){
 var ADORNI_FRAMES=[
@@ -157,7 +160,33 @@ document.getElementById('myriamFace').src   = MYRIAM_SRC;
 
 var bgC=document.getElementById('bgCanvas'), bgX=bgC.getContext('2d');
 var gc=document.getElementById('gameCanvas'), ctx=gc.getContext('2d');
-var W=800,H=520,GROUND=430,HUD=42;
+var scaleOuterEl = document.getElementById('scaleOuter');
+var wrapEl = document.getElementById('wrap');
+
+// Game area dimensions: landscape (desktop) vs portrait (mobile). HUD height stays constant.
+var W,H,GROUND,HUD=42;
+var GROUND_MARGIN=90; // distance from bottom of game area to ground line
+
+function isMobilePortrait(){
+  return window.innerWidth < 1000 && window.innerHeight > window.innerWidth;
+}
+
+function applyGameDimensions(){
+  var mobile = isMobilePortrait();
+  if(mobile){
+    W=520; H=800;
+  } else {
+    W=800; H=520;
+  }
+  GROUND = H - GROUND_MARGIN;
+  bgC.width=W; bgC.height=H;
+  gc.width=W; gc.height=H;
+  scaleOuterEl.style.width=W+'px'; scaleOuterEl.style.height=H+'px';
+  wrapEl.style.width=W+'px'; wrapEl.style.height=H+'px';
+  var hudEl=document.getElementById('hud');
+  if(hudEl){ hudEl.classList.toggle('narrow', mobile); }
+}
+applyGameDimensions();
 
 // ============ AUDIO: Arcade-style background music (procedural) ============
 var audioCtx=null, musicGain=null, musicPlaying=false, muted=false;
@@ -329,16 +358,20 @@ document.addEventListener('keyup',function(e){KEYS[e.key]=false;});
 // ============ RESPONSIVE SCALING + TOUCH CONTROLS ============
 var scaleOuter = document.getElementById('scaleOuter');
 var touchControlsEl = document.getElementById('touchControls');
-var GAME_W = 800, GAME_H = 520;
 
 function fitScale(){
-  var availW = window.innerWidth - 12;
-  var availH = window.innerHeight - 12;
-  var scale = Math.min(availW/GAME_W, availH/GAME_H, 1);
+  // Only resize the game area (W/H/GROUND) when not actively playing,
+  // to avoid desyncing entity Y positions that were placed relative to the old GROUND.
+  if(!running){
+    applyGameDimensions();
+  }
+
+  var vw = window.innerWidth - 12;
+  var vh = window.innerHeight - 12;
+  var scale = Math.min(vw/W, vh/H, 1);
   scaleOuter.style.transform = 'scale('+scale+')';
 
-  var isSmall = window.innerWidth < 1000;
-  if(isSmall){
+  if(window.innerWidth < 1000){
     touchControlsEl.classList.add('active');
   } else {
     touchControlsEl.classList.remove('active');
@@ -613,8 +646,14 @@ function update(){
 function drawBGScene(idx,alpha){
   if(!bgOk)return;
   var iw=bgImg.naturalWidth,ih=bgImg.naturalHeight,col=idx%2,row=Math.floor(idx/2);
+  var sceneW=iw/2, sceneH=ih/2;
+  var destW=W, destH=H-HUD;
+  // Cover-fit: scale scene to fully cover the destination area, cropping excess
+  var scale=Math.max(destW/sceneW, destH/sceneH);
+  var drawW=sceneW*scale, drawH=sceneH*scale;
+  var offX=(destW-drawW)/2, offY=(destH-drawH)/2;
   bgX.globalAlpha=alpha;
-  bgX.drawImage(bgImg,col*(iw/2),row*(ih/2),iw/2,ih/2,0,HUD,W,H-HUD);
+  bgX.drawImage(bgImg,col*sceneW,row*sceneH,sceneW,sceneH, offX,HUD+offY,drawW,drawH);
   bgX.globalAlpha=1;
 }
 function drawBG(){
@@ -807,8 +846,8 @@ function draw(){
   drawParticles();
 }
 function loop(){if(!running||paused)return;update();draw();requestAnimationFrame(loop);}
-function startGame(){hideModal('modalStart');initGame();running=true;loop();fitScale();}
-function restartGame(){hideModal('modalOver');hideModal('modalMyriam');initGame();running=true;loop();}
+function startGame(){hideModal('modalStart');fitScale();initGame();running=true;loop();}
+function restartGame(){hideModal('modalOver');hideModal('modalMyriam');fitScale();initGame();running=true;loop();}
 document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnRestart').addEventListener('click',restartGame);
 document.getElementById('btnRestartMyriam').addEventListener('click',restartGame);
