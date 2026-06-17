@@ -29,6 +29,7 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
 #muteBtn{cursor:pointer;font-size:16px;background:none;border:1px solid #FFD700;border-radius:4px;color:#FFD700;padding:2px 8px;}
 #cashFlash{position:absolute;top:50px;right:16px;color:#00FF88;font-size:24px;font-weight:bold;opacity:0;transition:opacity 0.4s;pointer-events:none;z-index:20;text-shadow:0 0 8px #00FF88;}
 .gmodal{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
+#caputoOverlay,#modalJubiladas,#modalConstructor{cursor:pointer;}
 #modalStart{background:rgba(0,0,0,0.93);z-index:110;}
 #modalStart img.hero{width:80px;height:130px;object-fit:contain;border:3px solid #FFD700;border-radius:6px;margin-bottom:10px;box-shadow:0 0 20px #FFD700;}
 #modalStart h1{color:#FFD700;font-size:28px;text-align:center;text-shadow:0 0 20px #FFD700;line-height:1.2;margin-bottom:4px;}
@@ -114,19 +115,19 @@ body{display:flex;flex-direction:column;align-items:center;justify-content:cente
     <div class="capMsg">💼 ¡CAPUTITO TE AYUDÓ A GUARDAR LA GUITA! 💼</div>
     <div class="billAnim" id="billAnim">💵💵💵</div>
     <div class="subMsg" id="caputoSubMsg"></div>
-    <div class="skipHint">[ ESPACIO para continuar ]</div>
+    <div class="skipHint">[ ESPACIO o TAP para continuar ]</div>
   </div>
   <div id="modalJubiladas" class="gmodal">
     <div class="bigEmoji">👵👵</div>
     <h3>¡Dos jubiladas que no te conocen<br>te prestaron 200 lucas verdes!</h3>
     <div class="amt">+$200.000 💚</div>
-    <div class="hint">[ ESPACIO para continuar ]</div>
+    <div class="hint">[ ESPACIO o TAP para continuar ]</div>
   </div>
   <div id="modalConstructor" class="gmodal">
     <canvas id="waterfallCanvas" width="320" height="150"></canvas>
     <h3>Agrandamos la casa y ya está<br>la cascada en la pileta 🏗️💧</h3>
     <div class="amt">-$1.000 💸</div>
-    <div class="hint">[ ESPACIO para continuar ]</div>
+    <div class="hint">[ ESPACIO o TAP para continuar ]</div>
   </div>
   <div id="modalMyriamWarn" class="gmodal">
     <h2>⚠️ OH NO!<br>¡YA VIENE MYRIAM! ⚠️</h2>
@@ -376,6 +377,15 @@ document.getElementById('btnPauseTouch').addEventListener('touchstart',function(
   ev.preventDefault(); togglePause();
 },{passive:false});
 document.getElementById('btnPauseTouch').addEventListener('click',function(){togglePause();});
+
+// Tap/click anywhere on skippable freeze modals to dismiss (mobile has no spacebar)
+['caputoOverlay','modalJubiladas','modalConstructor'].forEach(function(id){
+  var el = document.getElementById(id);
+  if(!el)return;
+  var dismiss = function(ev){ ev.preventDefault(); handleSpaceModal(); };
+  el.addEventListener('touchstart', dismiss, {passive:false});
+  el.addEventListener('click', dismiss);
+});
 
 // Prevent page scroll/zoom interfering with game on mobile
 document.addEventListener('touchmove',function(e){
