@@ -2,11 +2,23 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Las Adorniaventuras</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#1a0a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;overflow:hidden;}
+html,body{background:#1a0a2e;width:100%;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;overflow:hidden;}
+#scaleOuter{position:relative;width:800px;height:520px;transform-origin:center center;}
 #wrap{position:relative;width:800px;height:520px;overflow:hidden;border:3px solid #FFD700;border-radius:4px;}
+/* Touch controls - hidden by default, shown via JS on small screens */
+#touchControls{position:absolute;inset:0;z-index:60;pointer-events:none;display:none;}
+#touchControls.active{display:block;}
+.tbtn{position:absolute;pointer-events:auto;background:rgba(255,215,0,0.22);border:2px solid rgba(255,215,0,0.65);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;color:#FFD700;-webkit-tap-highlight-color:transparent;user-select:none;}
+.tbtn:active{background:rgba(255,215,0,0.45);}
+#btnLeft{left:18px;bottom:22px;width:64px;height:64px;}
+#btnRight{left:92px;bottom:22px;width:64px;height:64px;}
+#btnJump{right:18px;bottom:22px;width:78px;height:78px;font-size:34px;}
+#btnPauseTouch{position:absolute;pointer-events:auto;top:50px;right:10px;width:40px;height:40px;background:rgba(0,0,50,0.5);border:2px solid #FFD700;border-radius:8px;color:#FFD700;font-size:18px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;}
 #bgCanvas{position:absolute;top:0;left:0;}
 #gameCanvas{position:absolute;top:0;left:0;z-index:2;}
 #hud{position:absolute;top:0;left:0;right:0;background:rgba(0,0,0,0.82);padding:6px 14px;display:flex;align-items:center;gap:18px;font-size:13px;color:#FFD700;border-bottom:2px solid #FFD700;z-index:10;font-weight:bold;letter-spacing:1px;height:42px;}
@@ -57,9 +69,16 @@ body{background:#1a0a2e;display:flex;flex-direction:column;align-items:center;ju
 </style>
 </head>
 <body>
+<div id="scaleOuter">
 <div id="wrap">
   <canvas id="bgCanvas" width="800" height="520"></canvas>
   <canvas id="gameCanvas" width="800" height="520"></canvas>
+  <div id="touchControls">
+    <div class="tbtn" id="btnLeft">◀</div>
+    <div class="tbtn" id="btnRight">▶</div>
+    <div class="tbtn" id="btnJump">⤒</div>
+    <div id="btnPauseTouch">⏸</div>
+  </div>
   <div id="hud">
     <div id="livesEl">❤️❤️❤️</div>
     <div id="moneyEl">💵 $0</div>
@@ -112,6 +131,7 @@ body{background:#1a0a2e;display:flex;flex-direction:column;align-items:center;ju
   <div id="modalMyriamWarn" class="gmodal">
     <h2>⚠️ OH NO!<br>¡YA VIENE MYRIAM! ⚠️</h2>
   </div>
+</div>
 </div>
 <script>
 (function(){
@@ -304,6 +324,63 @@ document.addEventListener('keydown',function(e){
   if(e.key===' ')handleSpaceModal();
 });
 document.addEventListener('keyup',function(e){KEYS[e.key]=false;});
+
+// ============ RESPONSIVE SCALING + TOUCH CONTROLS ============
+var scaleOuter = document.getElementById('scaleOuter');
+var touchControlsEl = document.getElementById('touchControls');
+var GAME_W = 800, GAME_H = 520;
+
+function fitScale(){
+  var availW = window.innerWidth - 12;
+  var availH = window.innerHeight - 12;
+  var scale = Math.min(availW/GAME_W, availH/GAME_H, 1);
+  scaleOuter.style.transform = 'scale('+scale+')';
+
+  var isSmall = window.innerWidth < 1000;
+  if(isSmall){
+    touchControlsEl.classList.add('active');
+  } else {
+    touchControlsEl.classList.remove('active');
+  }
+}
+window.addEventListener('resize', fitScale);
+window.addEventListener('orientationchange', function(){ setTimeout(fitScale,200); });
+fitScale();
+
+// Touch button -> KEYS mapping (mirrors keyboard input)
+function bindTouchBtn(id, key){
+  var el = document.getElementById(id);
+  if(!el)return;
+  var press = function(ev){
+    ev.preventDefault();
+    KEYS[key]=true;
+    if(key===' ') { handleSpaceModal(); }
+  };
+  var release = function(ev){
+    ev.preventDefault();
+    KEYS[key]=false;
+  };
+  el.addEventListener('touchstart', press, {passive:false});
+  el.addEventListener('touchend', release, {passive:false});
+  el.addEventListener('touchcancel', release, {passive:false});
+  // Also support mouse for desktop testing
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindTouchBtn('btnLeft','ArrowLeft');
+bindTouchBtn('btnRight','ArrowRight');
+bindTouchBtn('btnJump','ArrowUp');
+
+document.getElementById('btnPauseTouch').addEventListener('touchstart',function(ev){
+  ev.preventDefault(); togglePause();
+},{passive:false});
+document.getElementById('btnPauseTouch').addEventListener('click',function(){togglePause();});
+
+// Prevent page scroll/zoom interfering with game on mobile
+document.addEventListener('touchmove',function(e){
+  if(e.target.closest('#wrap')) e.preventDefault();
+},{passive:false});
 
 var gs,player,pendrives,roaches,journos,jubiladas,constructors,caputos,myriams,particles;
 var pTimer,rTimer,journoTimer,running,frozen,paused;
@@ -720,7 +797,7 @@ function draw(){
   drawParticles();
 }
 function loop(){if(!running||paused)return;update();draw();requestAnimationFrame(loop);}
-function startGame(){hideModal('modalStart');initGame();running=true;loop();}
+function startGame(){hideModal('modalStart');initGame();running=true;loop();fitScale();}
 function restartGame(){hideModal('modalOver');hideModal('modalMyriam');initGame();running=true;loop();}
 document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnRestart').addEventListener('click',restartGame);
